@@ -363,14 +363,20 @@ void DBGUI_StartUp(void)
 	layout_sizes[data] = 8;
 	layout_sizes[code] = 11;
 	layout_sizes[var] = 4;
-	layout_sizes[out] = 0; // calculated later
+	layout_sizes[out] = 4; // set as reserve, calculated later
 
 	// calculate minimum required size (in rows)
 	int min_size = 0;
 	for (int i = 0; i < layout_max; i++)
 		min_size += 1 + layout_sizes[i];
 
-	if (getmaxy(dbg.win_main) - min_size <= 0)
+	if (getmaxy(dbg.win_main) < min_size) {
+		int need = min_size - getmaxy(dbg.win_main); // how much rows we need
+		// squish elements taking most of the space
+		layout_sizes[data] -= (need / 2) + (need % 2);
+		layout_sizes[code] -= (need / 2);
+	}
+	if (layout_sizes[data] < 3 || layout_sizes[code] < 4)
 		E_Exit("Couldn't fit layout elements, screen size is too small");
 
 	MakePairs();
