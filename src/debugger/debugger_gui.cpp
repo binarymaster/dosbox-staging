@@ -40,8 +40,6 @@ static _LogGroup loggrp[LOG_MAX] = {
 };
 static FILE* debuglog = nullptr;
 
-int layout_sizes[layout_max];
-
 extern int old_cursor_state;
 
 void DEBUG_ShowMsg(const char* format, ...)
@@ -184,27 +182,27 @@ static void DrawBars(void)
 	int outy = 1;
 	mvaddstr(outy - 1, 0, "-----(Register Overview                   )-----                                ");
 	/* Show the Data Overview bar perhaps with more special stuff in the end */
-	outy += layout_sizes[reg] + 1;
+	outy += dbg.rows_registers + 1;
 	mvaddstr(outy - 1,
 	         0,
 	         "-----(Data Overview   Scroll: page up/down)-----                                ");
 	/* Show the Code Overview perhaps with special stuff in bar too */
-	outy += layout_sizes[data] + 1;
+	outy += dbg.rows_data + 1;
 	mvaddstr(outy - 1,
 	         0,
 	         "-----(Code Overview   Scroll: up/down     )-----                                ");
 	/* Show the Variable Overview bar */
-	outy += layout_sizes[code] + 1;
+	outy += dbg.rows_code + 1;
 	mvaddstr(outy - 1,
 	         0,
 	         "-----(Variable Overview                   )-----                                ");
 	/* Show the Output OverView */
-	outy += layout_sizes[var] + 1;
+	outy += dbg.rows_output + 1;
 	mvaddstr(outy - 1,
 	         0,
 	         "-----(Output          Scroll: home/end    )-----                                ");
 	attrset(0);
-	// Use layout size array. So we don't need to touch the internal
+	// Use height values in rows. So we don't need to touch the internal
 	// window structures
 }
 
@@ -216,20 +214,20 @@ static void MakeSubWindows(void)
 	getmaxyx(dbg.win_main, win_main_maxy, win_main_maxx);
 	int outy = 1;
 	/* The Register window  */
-	dbg.win_reg = subwin(dbg.win_main, layout_sizes[reg], win_main_maxx, outy, 0);
-	outy += layout_sizes[reg] + 1;
+	dbg.win_reg = subwin(dbg.win_main, dbg.rows_registers, win_main_maxx, outy, 0);
+	outy += dbg.rows_registers + 1;
 	/* The Data Window */
-	dbg.win_data = subwin(dbg.win_main, layout_sizes[data], win_main_maxx, outy, 0);
-	outy += layout_sizes[data] + 1;
+	dbg.win_data = subwin(dbg.win_main, dbg.rows_data, win_main_maxx, outy, 0);
+	outy += dbg.rows_data + 1;
 	/* The Code Window */
-	dbg.win_code = subwin(dbg.win_main, layout_sizes[code], win_main_maxx, outy, 0);
-	outy += layout_sizes[code] + 1;
+	dbg.win_code = subwin(dbg.win_main, dbg.rows_code, win_main_maxx, outy, 0);
+	outy += dbg.rows_code + 1;
 	/* The Variable Window */
-	dbg.win_var = subwin(dbg.win_main, layout_sizes[var], win_main_maxx, outy, 0);
-	outy += layout_sizes[var] + 1;
+	dbg.win_var = subwin(dbg.win_main, dbg.rows_variables, win_main_maxx, outy, 0);
+	outy += dbg.rows_variables + 1;
 	/* The Output Window */
-	layout_sizes[out] = win_main_maxy - outy;
-	dbg.win_out = subwin(dbg.win_main, layout_sizes[out], win_main_maxx, outy, 0);
+	dbg.rows_output = win_main_maxy - outy; /* Use the rest of window */
+	dbg.win_out = subwin(dbg.win_main, dbg.rows_output, win_main_maxx, outy, 0);
 	if (!dbg.win_reg || !dbg.win_data || !dbg.win_code || !dbg.win_var ||
 	    !dbg.win_out) {
 		E_Exit("Setting up windows failed");
@@ -358,20 +356,17 @@ void DBGUI_StartUp(void)
 	start_color();
 	cycle_count = 0;
 
-	// set defaults
-	layout_sizes[reg] = 4;
-	layout_sizes[data] = 8;
-	layout_sizes[code] = 11;
-	layout_sizes[var] = 4;
-	layout_sizes[out] = 0; // calculated later
-
 	// calculate minimum required size (in rows)
-	int min_size = 0;
-	for (int i = 0; i < layout_max; i++)
-		min_size += 1 + layout_sizes[i];
+	int min_size = 1 + dbg.rows_registers
+	             + 1 + dbg.rows_data
+	             + 1 + dbg.rows_code
+	             + 1 + dbg.rows_variables
+	             + 1 + dbg.rows_output;
 
-	if (getmaxy(dbg.win_main) - min_size <= 0)
+	if (getmaxy(dbg.win_main) - min_size <= 0) {
 		E_Exit("Couldn't fit layout elements, screen size is too small");
+		return;
+	}
 
 	MakePairs();
 	MakeSubWindows();
